@@ -98,7 +98,6 @@ class Camera:
 
         # Update WOI information.
         self.woi = (0, width, 0, height)
-        self.set_woi()
 
         # Set other useful parameters
         self.bitdepth = bitdepth
