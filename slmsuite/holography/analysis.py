@@ -1562,3 +1562,113 @@ def get_orientation_transformation(rot="0", fliplr=False, flipud=False):
         transforms.append(lambda img: np.rot90(img, 3))
 
     return reduce(lambda f, g: lambda x: f(g(x)), transforms, lambda x: x)
+
+def convert_bayer_offsets(gy, gx, Gy, Gx, ry, rx, by, bx):
+    """
+    Helper function for later interpolation
+    """
+    if gy == 0:
+        gy = 2
+    if gx == 0:
+        gx = 2
+    if Gy == 0:
+        Gy = 2
+    if Gx == 0:
+        Gx = 2
+    if rx == 0:
+        rx = 2
+    if ry == 0:
+        ry = 2
+    if by == 0:
+        by = 2
+    if bx == 0:
+        bx = 2
+    return [gy, gx], [Gy, Gx], [ry, rx], [by, bx]
+
+
+def return_interp_arr(roi, bayer_offsets):
+    """
+    Implement bi-linear interpolation of raw output based on green colour channels.
+    Parameters
+    ----------
+    roi: np.ndarray
+        the raw input image with colour filter BGGR
+    bayer_offsets: list
+        [rx, ry]: Indices denoting the offset of the red channel from (0, 0)
+        [bx, by]: Same as above but for blue channel
+        [gx, gy]: green channel in red row
+        [Gx, Gy]: green channel in blue row
+
+    Returns
+    -------
+    greens: np.ndarray.
+        The interpolated array
+    """
+    data = np.array(roi)
+
+    [ry, rx], [gy, gx], [Gy, Gx], [by, bx] = bayer_offsets
+
+    greens = np.zeros([data.shape[0] - 2, data.shape[1] - 2], dtype=data.dtype)
+
+    [gy, gx], [Gy, Gx], [ry, rx], [by, bx] = convert_bayer_offsets(gy, gx, Gy, Gx, ry, rx, by, bx)
+
+    if Gy == 1 and Gx == 2:
+        greens[Gy - 1::2, Gx - 1::2] = data[Gy:-1:2,
+                                       Gx::2]  # This is the green channel. If Gy is 1, then we can only go to -1
+    elif Gy == 1 and Gx == 1:
+        greens[Gy - 1::2, Gx - 1::2] = data[Gy:-1:2, Gx:-1:2]
+    elif Gy == 2 and Gx == 1:
+        greens[Gy - 1::2, Gx - 1::2] = data[Gy::2, Gx:-1:2]
+    else:
+        greens[Gy - 1::2, Gx - 1::2] = data[Gy::2, Gx::2]
+
+    if gy == 1 and gx == 2:
+        greens[gy - 1::2, gx - 1::2] = data[gy:-1:2,
+                                       gx::2]  # This is the green channel. If Gy is 1, then we can only go to -1
+    elif gy == 1 and gx == 1:
+        greens[gy - 1::2, gx - 1::2] = data[gy:-1:2, gx:-1:2]
+    elif gy == 2 and gx == 1:
+        greens[gy - 1::2, gx - 1::2] = data[gy::2, gx:-1:2]
+    else:
+        greens[gy - 1::2, gx - 1::2] = data[gy::2, gx::2]
+
+    if ry == 1 and rx == 1:
+        greens[ry - 1::2, rx - 1::2] = (data[ry + 1::2, rx:-1:2] + data[ry - 1:-2:2, rx:-1:2] + data[ry:-1:2,
+                                                                                                rx + 1::2] + data[
+                                                                                                             ry:-1:2,
+                                                                                                             rx - 1:-2:2]) / 4
+    if ry == 2 and rx == 2:
+        greens[ry - 1::2, rx - 1::2] = (data[ry + 1::2, rx::2] + data[ry - 1:-1:2, rx::2] + data[ry::2,
+                                                                                            rx - 1:-1:2] + data[ry::2,
+                                                                                                           rx + 1::2]) / 4
+    if ry == 1 and rx == 2:
+        greens[ry - 1::2, rx - 1::2] = (data[ry + 1::2, rx::2] + data[ry - 1:-2:2, rx::2] + data[ry:-1:2,
+                                                                                            rx - 1:-1:2] + data[ry:-1:2,
+                                                                                                           rx + 1::2]) / 4
+    if ry == 2 and rx == 1:
+        greens[ry - 1::2, rx - 1::2] = (data[ry + 1::2, rx:-1:2] + data[ry - 1:-1:2, rx:-1:2] + data[ry::2,
+                                                                                                rx - 1:-2:2] + data[
+                                                                                                               ry::2,
+                                                                                                               rx + 1::2]) / 4
+
+    if by == 1 and bx == 1:
+        greens[by - 1::2, bx - 1::2] = (data[by + 1::2, bx:-1:2] + data[by - 1:-2:2, bx:-1:2] + data[by:-1:2,
+                                                                                                bx + 1::2] + data[
+                                                                                                             by:-1:2,
+                                                                                                             bx - 1:-2:2]) / 4
+    if by == 2 and bx == 2:
+        greens[by - 1::2, bx - 1::2] = (data[by + 1::2, bx::2] + data[by - 1:-1:2, bx::2] + data[by::2,
+                                                                                            bx - 1:-1:2] + data[by::2,
+                                                                                                           bx + 1::2]) / 4
+    if by == 1 and bx == 2:
+        greens[by - 1::2, bx - 1::2] = (data[by + 1::2, bx::2] + data[by - 1:-2:2, bx::2] + data[by:-1:2,
+                                                                                            bx - 1:-1:2] + data[by:-1:2,
+                                                                                                           bx + 1::2]) / 4
+    if by == 2 and bx == 1:
+        greens[by - 1::2, bx - 1::2] = (data[by + 1::2, bx:-1:2] + data[by - 1:-1:2, bx:-1:2] + data[by::2,
+                                                                                                bx - 1:-2:2] + data[
+                                                                                                               by::2,
+                                                                                                               bx + 1::2]) / 4
+
+    return greens
+
