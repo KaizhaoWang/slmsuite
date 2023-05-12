@@ -53,7 +53,7 @@ class picamera(Camera):
             rotation: default 0
             flip_up_down: default False
             flip_lr: default False
-            background: default set to 64
+            background: default set to 0
             return_green_interp
         """
         #Initialize the ip and the port
@@ -66,7 +66,7 @@ class picamera(Camera):
         self.rot = kwargs.get("rotation", "0")
         self.flip_ud = kwargs.get("flip_up_down", False)
         self.flip_lr = kwargs.get("flip_lr", False)
-        self.bg = kwargs.get("background", 64)
+        self.bg = kwargs.get("background", 0)
         self.return_green_interp = kwargs.get("return_green_interp", False)
         
         # Opening a the server and connect to picamera
@@ -85,7 +85,7 @@ class picamera(Camera):
         # Define the min and max exposure time of the picamera
         self.exp_time_min = 9
         self.exp_time_max = 1000000/self.frame_rate
-        
+
         # Finally, use the superclass constructor to initialize other required variables.
         super().__init__(
             self.width,                       # TODO: Fill in proper functions.
@@ -106,8 +106,12 @@ class picamera(Camera):
         self.cam.set_analog_gain(1)
         self.cam.set_digital_gain(1)
 
+        # Set the WOI of the camera to full resolution
+        self.set_woi(woi=(0, self.width, 0, self.height))
         # Declare color channel offsets
-        self.bayer_offset = [[], [], [], []]
+        # Update color channel indices
+        # [ry, rx], [gy, gx], [Gy, Gx], [by, bx] = self.cam.get_bayer_offsets()
+        # self.bayer_offsets = [ry, rx], [gy, gx], [Gy, Gx], [by, bx]
 
         
     def close(self):
@@ -171,7 +175,7 @@ class picamera(Camera):
         set_auto: bool (int cuz tiqi_plugin)
             if False, set woi manually
         woi: list
-            woi bbox in format [width_min, width_max, height_min, height_max]
+            woi bbox in format (width_min, width_max, height_min, height_max)
         """
 
         self.cam.set_woi(crop_width=crop_width, set_auto=set_auto, woi=woi)
@@ -181,9 +185,9 @@ class picamera(Camera):
         # That is, the returned image from the Pi is *designed* to always have shape (2464, 3280)
         width_min, width_max, height_min, height_max = self._get_woi()
 
-        if width_min <= 0 or height_min <= 0:
+        if width_min < 0 or height_min < 0:
             logging.warning("The current window of interest exceeds the camera limits. Choose smaller crop width.")
-        if height_max >= 2464 or width_max >= 3280:
+        if height_max > 2464 or width_max > 3264:
             logging.warning("The current window of interest exceeds the camera limits. Choose smaller crop width.")
 
         # # Change shape of camera object to reflect WOI - format (height, width)
@@ -212,7 +216,7 @@ class picamera(Camera):
         """
         return self.cam.get_woi()
 
-    def get_image(self, timeout_s=0.04):
+    def get_image(self, timeout_s=0.04, background=None, return_green_interp=None):
         """See :meth:`.Camera.get_image`.
 
         Parameters:
@@ -239,14 +243,27 @@ class picamera(Camera):
         if self.verbose:
             print(f"Image capture took {et} seconds.")
 
+        # Use background if specified in this get_image() function, otherwise use the initialized value in the constructor
+        if background is None:
+            bg = self.bg
+        else:
+            bg = background
+        
         # Subtract background - uniform for now
-        frame = np.array(frame) - self.bg  # Frame after capture has type: list due to Pi transmission
+        frame = np.array(frame) - bg  # Frame after capture has type: list due to Pi transmission
         # Since there are negative values due to background subtraction, the array has d-type np.int32 (signed int).
 
         # Clip negative values to zero
         frame[frame < 0] = 0
 
-        if self.return_green_interp:
+        # Use the return_green_interp is specified in this function, use the initialized value otherwise
+        if return_green_interp is None:
+            rgi = self.return_green_interp
+        else:
+            rgi = return_green_interp
+
+        # If required return the interpolated image
+        if rgi:
             frame = return_interp_arr(frame, self.bayer_offsets)
 
         return self.transform(frame)  # Transform image if desired
