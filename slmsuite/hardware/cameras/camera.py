@@ -85,8 +85,11 @@ class Camera:
         name : str
             Defaults to ``"camera"``.
         """
+        # Boolean transpose helper
+        self.rot = (rot in ("90", 1, "270", 3))
+
         # Set shape, depending upon transform.
-        if rot in ("90", 1, "270", 3):
+        if self.rot:
             self.shape = (width, height)
             self.default_shape = (width, height)
         else:
@@ -97,7 +100,10 @@ class Camera:
         self.transform = analysis.get_orientation_transformation(rot, fliplr, flipud)
 
         # Update WOI information.
-        self.woi = (0, width, 0, height)
+        if self.rot:
+            self.woi = (0, height, 0, width)
+        else:
+            self.woi = (0, width, 0, height)
 
         # Set other useful parameters
         self.bitdepth = bitdepth
