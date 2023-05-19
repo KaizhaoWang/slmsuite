@@ -73,7 +73,7 @@ class Meadowlark(SLM):
         except:
             print("failure")
             raise ImportError(
-                "Meadowlark .dlls did not did not import correctly. Is '{}' the correct path?"
+                "Meadowlark .dlls did not import correctly. Is '{}' the correct path?"
                 .format(dll_path)
             )
 

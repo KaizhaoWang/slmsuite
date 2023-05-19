@@ -86,6 +86,9 @@ class picamera(Camera):
         self.exp_time_min = 9
         self.exp_time_max = 1000000/self.frame_rate
 
+        # Set the exposure boundary
+        self.exposure_bounds_s = (self.exp_time_min, self.exp_time_max)
+
         # Finally, use the superclass constructor to initialize other required variables.
         super().__init__(
             self.width,                       # TODO: Fill in proper functions.
@@ -108,6 +111,7 @@ class picamera(Camera):
 
         # Set the WOI of the camera to full resolution
         self.set_woi(woi=(0, self.width, 0, self.height))
+
         # Declare color channel offsets
         # Update color channel indices
         # [ry, rx], [gy, gx], [Gy, Gx], [by, bx] = self.cam.get_bayer_offsets()
@@ -154,7 +158,6 @@ class picamera(Camera):
 
         return float(exposure_time)
 
-
     def set_exposure(self, exposure_us):
        """See :meth:`.Camera.set_exposure`.
         The PiCamera.shutter_speed (or the PiCamera.exposure_speed) attributes
@@ -187,22 +190,21 @@ class picamera(Camera):
 
         if width_min < 0 or height_min < 0:
             logging.warning("The current window of interest exceeds the camera limits. Choose smaller crop width.")
-        if height_max > 2464 or width_max > 3264:
+        if height_max > 2464 or width_max > 3280:
             logging.warning("The current window of interest exceeds the camera limits. Choose smaller crop width.")
 
-        # # Change shape of camera object to reflect WOI - format (height, width)
-        # if self.tp_output:
-        #     self.shape = (width_max - width_min, height_max - height_min)
-        # else:
-        #     self.shape = (height_max - height_min, width_max - width_min)
+        # Change shape of camera object to reflect WOI - format (height, width)
+        if self.rot:
+            self.shape = (width_max - width_min, height_max - height_min)
+        else:
+            self.shape = (height_max - height_min, width_max - width_min)
 
-        # # Update WOI attribute
-        # if self.tp_output:
-        #     self.woi = (height_min, height_max, width_min, width_max)
-        # else:
-        #     self.woi = (width_min, width_max, height_min, height_max)
-
-        self.woi = (width_min, width_max, height_min, height_max)
+        # Update WOI attribute
+        if self.rot:
+            self.woi = (height_min, height_max, width_min, width_max)
+        else:
+            self.woi = (width_min, width_max, height_min, height_max)
+            
         # Update color channel indices
         [ry, rx], [gy, gx], [Gy, Gx], [by, bx] = self.cam.get_bayer_offsets()
         self.bayer_offsets = [ry, rx], [gy, gx], [Gy, Gx], [by, bx]

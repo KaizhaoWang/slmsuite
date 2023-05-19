@@ -715,7 +715,7 @@ class FourierSLM(CameraSLM):
 
         # Remove the current calibration
         measured_amplitude = self.slm.measured_amplitude
-        phase_correction = self.slm.measured_amplitude
+        phase_correction = self.slm.phase_correction
 
         if fresh_calibration:
             self.slm.measured_amplitude = None
@@ -1094,7 +1094,7 @@ class FourierSLM(CameraSLM):
         if autoexposure:
             window = [  interference_point[0], 2 * interference_size[0],
                         interference_point[1], 2 * interference_size[1] ]
-            self.cam.autoexposure(set_fraction=0.1, window=window)
+            self.cam.autoexposure(set_fraction=0.2, window=window, average_count=1, timeout_s=15, tol=0.05)
 
         base_image = self.cam.get_image()
         plot_labeled(base_image, plot=plot_everything, title="Base Reference Diffraction")
@@ -1116,24 +1116,34 @@ class FourierSLM(CameraSLM):
         if test_superpixel is not None:
             return measure(test_superpixel, plot=plot_fits)
 
-        # Otherwise, proceed with all of the superpixels.
-        for n in tqdm(range(NX * NY), position=1, leave=True, desc="calibration"):
-            nx = int(n % NX)
-            ny = int(n / NX)
+        # Otherwise, proceed with all of the superpixels.  
+
+        # Number of excluded superpixels on both sides
+        nx_e = exclude_superpixels[0]
+        ny_e = exclude_superpixels[1]
+
+        # Number of superpixels after the exclusion
+        NX_e = NX - (2 * nx_e)
+        NY_e = NY - (2 * ny_e)
+
+        for n in tqdm(range(NX_e * NY_e), position=1, leave=True, desc="calibration"):
+            
+            nx = int(n % NX_e) + nx_e
+            ny = int(n / NX_e) + ny_e
 
             # Exclude the reference mode.
             if nx == nxref and ny == nyref:
                 continue
 
-            # Exclude margin superpixels, if desired.
-            if nx < exclude_superpixels[0]:
-                continue
-            if nx > NX - exclude_superpixels[0]:
-                continue
-            if ny < exclude_superpixels[1]:
-                continue
-            if ny > NY - exclude_superpixels[1]:
-                continue
+            # # Exclude margin superpixels, if desired.
+            # if nx < exclude_superpixels[0]:
+            #     continue
+            # if nx > NX - exclude_superpixels[0]:
+            #     continue
+            # if ny < exclude_superpixels[1]:
+            #     continue
+            # if ny > NY - exclude_superpixels[1]:
+            #     continue
 
             # Measure!
             measurement = measure((nx, ny))
