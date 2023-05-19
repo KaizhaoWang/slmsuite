@@ -31,7 +31,7 @@ class picamera(Camera):
 
     def __init__(
         self,
-        ip="192.168.222.121",
+        ip="192.168.222.128",
         port="6009",
         verbose=True,
         **kwargs
@@ -216,7 +216,7 @@ class picamera(Camera):
         """
         return self.cam.get_woi()
 
-    def get_image(self, timeout_s=0.04, background=None, return_green_interp=None):
+    def get_image(self, timeout_s=0.0, background=None, return_green_interp=None):
         """See :meth:`.Camera.get_image`.
 
         Parameters:
