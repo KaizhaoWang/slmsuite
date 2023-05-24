@@ -42,3 +42,6 @@
 
 # local
 keys.json
+
+# Project folder
+/projects/
