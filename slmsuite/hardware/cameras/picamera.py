@@ -78,7 +78,7 @@ class picamera(Camera):
             print("Connected!")
 
         # Initializing the width and height to the full resolution, and gather the framerate of the pi camera.
-        self.width, self.height = self.cam.get_resolution()
+        self.width, self.height = (3280, 2464)
         self.frame_rate = self.cam.get_framerate()
         self.bitdepth = 10 # TODO: check whether I can obtain this from the camera directly
         
