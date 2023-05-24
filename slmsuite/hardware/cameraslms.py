@@ -707,6 +707,7 @@ class FourierSLM(CameraSLM):
             "amp_fit",
             "contrast_fit",
             "r2_fit",
+            "phase_std",
         ]
 
         for key in keys:
@@ -819,7 +820,7 @@ class FourierSLM(CameraSLM):
             ]
 
             try:
-                popt, _ = optimize.curve_fit(cos, phases, intensities, p0=guess)
+                popt, pcov = optimize.curve_fit(cos, phases, intensities, p0=guess)
             except BaseException:
                 return 0, 0, 0, 0
 
@@ -827,6 +828,7 @@ class FourierSLM(CameraSLM):
             best_phase = popt[0]
             amp = popt[1]
             contrast = popt[1] / (popt[1] + popt[2])
+            phase_std = np.sqrt(np.diag(pcov)[0])
 
             # residual and total sum of squares, producing the R^2 metric.
             ss_res = np.sum((intensities - cos(phases, *popt)) ** 2)
@@ -852,7 +854,7 @@ class FourierSLM(CameraSLM):
 
                 plt.show()
 
-            return best_phase, amp, r2, contrast
+            return best_phase, amp, r2, contrast, phase_std
 
         def plot_labeled(img, plot=False, title="", plot_zoom=False):
             if plot_everything or plot:
@@ -1012,6 +1014,7 @@ class FourierSLM(CameraSLM):
                     "amp_fit": np.nan,
                     "contrast_fit": np.nan,
                     "r2_fit": np.nan,
+                    "phase_std": np.nan,
                 }
 
             # Step 1.5: Measure the power in the corrected target mode.
@@ -1058,7 +1061,7 @@ class FourierSLM(CameraSLM):
                     )
 
             # Step 4: Fit to sine and return.
-            phase_fit, amp_fit, r2_fit, contrast_fit = fit_phase(phases, results)
+            phase_fit, amp_fit, r2_fit, contrast_fit, phase_std = fit_phase(phases, results)
 
 
             self.slm.write( superpixels(index, reference=0, target=phase_fit,
@@ -1084,6 +1087,7 @@ class FourierSLM(CameraSLM):
                 "amp_fit": amp_fit,
                 "contrast_fit": contrast_fit,
                 "r2_fit": r2_fit,
+                "phase_std": phase_std,
             }
 
         # Correct exposure and position of the reference mode.
