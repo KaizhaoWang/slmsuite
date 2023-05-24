@@ -407,7 +407,7 @@ def image_normalize(images, nansum=False, remove_field=False):
     normalization = image_normalization(images, nansum=nansum)
 
     if single_image:
-        normalization = np.asscalar(normalization)
+        normalization = normalization.item()
         if normalization == 0:
             return np.zeros_like(images)
         else:
