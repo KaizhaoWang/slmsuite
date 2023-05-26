@@ -2273,6 +2273,8 @@ class FeedbackHologram(Hologram):
             self.cameraslm.slm.write(self.extract_phase(), settle=True)
             self.cameraslm.cam.flush()
             self.img_ij = np.array(self.cameraslm.cam.get_image(), copy=False, dtype=self.dtype)
+            self.cameraslm.cam.flush()
+            self.img_ij = np.array(self.cameraslm.cam.get_image(), copy=False, dtype=self.dtype)
 
             if basis == "knm":  # Compute the knm basis image.
                 self.img_knm = self.ijcam_to_knmslm(self.img_ij, out=self.img_knm)
@@ -2999,6 +3001,7 @@ class SpotHologram(FeedbackHologram):
             self.measure(basis="ij")
             img = self.img_ij
 
+
         # Take regions around each point from the given image.
         regions = analysis.take(
             img, self.spot_ij, self.spot_integration_width_ij, centered=True, integrate=False
@@ -3052,7 +3055,7 @@ class SpotHologram(FeedbackHologram):
                 self.reset_phase()
             elif basis == "ij":
                 # Modify camera targets. Don't modify any k-vectors.
-                self.spot_ij = self.spot_ij + shift_vectors
+                self.spot_ij = self.spot_ij - shift_vectors
             else:
                 raise Exception("Unrecognized basis '{}'.".format(basis))
 
