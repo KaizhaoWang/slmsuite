@@ -252,11 +252,11 @@ class AlliedVision(Camera):
 
     def get_exposure(self):
         """See :meth:`.Camera.get_exposure`."""
-        return float(self.cam.ExposureTime.get()) / 1e6
+        return float(self.cam.ExposureTime.get())
 
-    def set_exposure(self, exposure_s):
+    def set_exposure(self, exposure_us):
         """See :meth:`.Camera.set_exposure`."""
-        self.cam.ExposureTime.set(float(exposure_s * 1e6))
+        self.cam.ExposureTime.set(float(exposure_us))
 
     def set_woi(self, woi=None):
         """See :meth:`.Camera.set_woi`."""
@@ -287,3 +287,37 @@ class AlliedVision(Camera):
     def reset(self):
         """See :meth:`.Camera.reset`."""
         raise NotImplementedError()
+    
+    def get_pixel_format(self):
+        """
+        returns the current pixel format
+        """
+        return self.cam.get_pixel_format()
+    
+    def set_pixel_format(self, format):
+        """
+        set the pixel format
+        """
+        if format not in ["Mono8", "Mono10", "Mono10p", "Mono12", "Mono12p"]:
+            raise AttributeError("format must be one of Mono8, Mono10, Mono10p, Mono12, Mono12p")
+        elif format is "Mono8":
+            format = vimba.PixelFormat.Mono8
+            self.bitdepth = 8
+        elif format is "Mono10":
+            format = vimba.PixelFormat.Mono10
+            self.bitdepth = 10
+        elif format is "Mono10p":
+            format = vimba.PixelFormat.Mono10p
+            self.bitdepth = 10
+        elif format is "Mono12":
+            format = vimba.PixelFormat.Mono12
+            self.bitdepth = 12
+        elif format is "Mono12p":
+            format = vimba.PixelFormat.Mono12p
+            self.bitdepth = 12
+
+        self.cam.set_pixel_format(format)
+        self.bitresolution = 2 ** self.bitdepth
+        
+
+
