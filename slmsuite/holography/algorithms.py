@@ -599,7 +599,6 @@ class Hologram:
         callback=None,
         feedback=None,
         stat_groups=[],
-        average=1,
         **kwargs
     ):
         r"""
@@ -816,10 +815,10 @@ class Hologram:
 
         # 3) Switch between optimization methods (currently only GS- or WGS-type is supported).
         if "GS" in method:
-            self.GS(iterations, callback, average=average)
+            self.GS(iterations, callback)
 
     # Optimization methods (currently only GS- or WGS-type is supported).
-    def GS(self, iterations, callback, average=1):
+    def GS(self, iterations, callback):
         """
         GPU-accelerated Gerchberg-Saxton (GS) iterative phase retrieval.
 
@@ -883,7 +882,7 @@ class Hologram:
 
             # 2.3) Evaluate method-specific routines, stats, etc.
             # If you want to add new functionality to GS, do so here to keep the main loop clean.
-            self._GS_farfield_routines(farfield, mraf_variables, average=average)
+            self._GS_farfield_routines(farfield, mraf_variables)
 
             # 3) Farfield -> nearfield.
             nearfield = cp.fft.ifftshift(cp.fft.ifft2(cp.fft.ifftshift(farfield), norm="ortho"))
@@ -959,14 +958,13 @@ class Hologram:
         if hasattr(self, "img_ij"):     self.img_ij = None
         if hasattr(self, "img_knm"):    self.img_knm = None
 
-    def _GS_farfield_routines(self, farfield, mraf_variables, average=1):
+    def _GS_farfield_routines(self, farfield, mraf_variables):
         # Update statistics
         self.update_stats(self.flags["stat_groups"])
 
-        self.img_ij = None
         # Weight, if desired.
         if "WGS" in self.method:
-            self._update_weights(average=average)
+            self._update_weights()
 
             # Decide whether to fix phase.
             if "Kim" in self.method:
@@ -2253,7 +2251,7 @@ class FeedbackHologram(Hologram):
         if plot:
             self.plot_farfield(self.target)
 
-    def measure(self, basis="ij", average=1):
+    def measure(self, basis="ij"):
         """
         Method to request a measurement to occur. If :attr:`img_ij` is ``None``,
         then a new image will be grabbed from the camera (this is done automatically in
@@ -2270,21 +2268,11 @@ class FeedbackHologram(Hologram):
 
             This is useful to avoid (expensive) transformation from the ``"ij"`` to the
             ``"knm"`` basis if :attr:`img_knm` is not needed.
-        average: int
-            Average the measurement results over many frames taken from the camera to
-            reduce the noise of the camera, could be very useful while doing feedback WGS
-            to improve uniformity.
         """
         if self.img_ij is None:
             self.cameraslm.slm.write(self.extract_phase(), settle=True)
-
-            img_ij = np.array(self.cameraslm.cam.get_image(), copy=False, dtype=self.dtype)
-
-            for i in range(average-1):
-                self.cameraslm.cam.flush()
-                img_ij += np.array(self.cameraslm.cam.get_image(), copy=False, dtype=self.dtype)
-
-            self.img_ij = img_ij/average
+            self.cameraslm.cam.flush()
+            self.img_ij = np.array(self.cameraslm.cam.get_image(), copy=False, dtype=self.dtype)
 
             if basis == "knm":  # Compute the knm basis image.
                 self.img_knm = self.ijcam_to_knmslm(self.img_ij, out=self.img_knm)
@@ -2328,7 +2316,7 @@ class FeedbackHologram(Hologram):
 
         raise NotImplementedError()
 
-    def _update_weights(self, average=1):
+    def _update_weights(self):
         """
         Change :attr:`weights` to optimize towards the :attr:`target` using feedback from
         :attr:`amp_ff`, the computed farfield amplitude. This function also updates stats.
@@ -2338,15 +2326,15 @@ class FeedbackHologram(Hologram):
         if feedback == "computational":
             self._update_weights_generic(self.weights, self.amp_ff, self.target)
         elif feedback == "experimental":
-            self.measure("knm", average=average)  # Make sure data is there.
+            self.measure("knm")  # Make sure data is there.
             self._update_weights_generic(self.weights, self.img_knm, self.target)
 
-    def _calculate_stats_experimental(self, stats, stat_groups=[], average=1):
+    def _calculate_stats_experimental(self, stats, stat_groups=[]):
         """
         Wrapped by :meth:`FeedbackHologram.update_stats()`.
         """
         if "experimental_knm" in stat_groups:
-            self.measure("knm", average=average)  # Make sure data is there.
+            self.measure("knm")  # Make sure data is there.
 
             stats["experimental_knm"] = self._calculate_stats(
                 self.img_knm,
@@ -2355,7 +2343,7 @@ class FeedbackHologram(Hologram):
                 raw="raw_stats" in self.flags and self.flags["raw_stats"]
             )
         if "experimental_ij" in stat_groups or "experimental" in stat_groups:
-            self.measure("ij", average=average)  # Make sure data is there.
+            self.measure("ij")  # Make sure data is there.
 
             stats["experimental_ij"] = self._calculate_stats(
                 self.img_ij.astype(self.dtype),
@@ -2365,7 +2353,7 @@ class FeedbackHologram(Hologram):
                 raw="raw_stats" in self.flags and self.flags["raw_stats"]
             )
 
-    def update_stats(self, stat_groups=[], average=1):
+    def update_stats(self, stat_groups=[]):
         """
         Calculate statistics corresponding to the desired ``stat_groups``.
 
@@ -2377,7 +2365,7 @@ class FeedbackHologram(Hologram):
         stats = {}
 
         self._calculate_stats_computational(stats, stat_groups)
-        self._calculate_stats_experimental(stats, stat_groups, average=average)
+        self._calculate_stats_experimental(stats, stat_groups)
 
         self._update_stats_dictionary(stats)
 
@@ -2972,7 +2960,7 @@ class SpotHologram(FeedbackHologram):
         """
         self._update_target_spots(reset_weights=reset_weights, plot=plot)
 
-    def refine_offset(self, img=None, basis="kxy", force_affine=True, plot=False, average=1):
+    def refine_offset(self, img=None, basis="kxy", force_affine=True, plot=False):
         """
         Hones the positions of the produced spots toward the desired targets to compensate for
         Fourier calibration imperfections. Works either by moving camera integration
@@ -3008,8 +2996,7 @@ class SpotHologram(FeedbackHologram):
         """
         # If no image was provided, get one from cache.
         if img is None:
-            self.measure(basis="ij", average=average)
-            img = self.img_ij
+            img = self.measure(basis="ij")
 
         # Take regions around each point from the given image.
         regions = analysis.take(
@@ -3062,13 +3049,13 @@ class SpotHologram(FeedbackHologram):
                 self.reset_phase()
             elif basis == "ij":
                 # Modify camera targets. Don't modify any k-vectors.
-                self.spot_ij = self.spot_ij + shift_vectors
+                self.spot_ij = self.spot_ij - shift_vectors
             else:
                 raise Exception("Unrecognized basis '{}'.".format(basis))
 
         return shift_vectors
 
-    def _update_weights(self, average=1):
+    def _update_weights(self):
         """
         Change :attr:`weights` to optimize towards the :attr:`target` using feedback from
         :attr:`amp_ff`, the computed farfield amplitude. This function also updates stats.
@@ -3095,7 +3082,8 @@ class SpotHologram(FeedbackHologram):
                     mp=cp
                 ))
             elif feedback == "experimental_spot":
-                self.measure(basis='ij', average=average)
+                self.measure(basis="ij")
+
                 amp_feedback = np.sqrt(analysis.take(
                     np.square(np.array(self.img_ij, copy=False, dtype=self.dtype)),
                     self.spot_ij,
@@ -3146,7 +3134,7 @@ class SpotHologram(FeedbackHologram):
                     )
                     self.weights[window] *= dummy_weights[spot_idx]
 
-    def _calculate_stats_spots(self, stats, stat_groups=[], average=1):
+    def _calculate_stats_spots(self, stats, stat_groups=[]):
         """
         Wrapped by :meth:`SpotHologram.update_stats()`.
         """
@@ -3202,7 +3190,7 @@ class SpotHologram(FeedbackHologram):
                     )
 
         if "experimental_spot" in stat_groups:
-            self.measure(basis="ij", average=average)
+            self.measure(basis="ij")
 
             pwr_img = np.square(self.img_ij)
 
@@ -3234,7 +3222,7 @@ class SpotHologram(FeedbackHologram):
                 raw="raw_stats" in self.flags and self.flags["raw_stats"]
             )
 
-    def update_stats(self, stat_groups=[], average=1):
+    def update_stats(self, stat_groups=[]):
         """
         Calculate statistics corresponding to the desired ``stat_groups``.
 
@@ -3246,7 +3234,7 @@ class SpotHologram(FeedbackHologram):
         stats = {}
 
         self._calculate_stats_computational(stats, stat_groups)
-        self._calculate_stats_experimental(stats, stat_groups, average=average)
-        self._calculate_stats_spots(stats, stat_groups, average=average)
+        self._calculate_stats_experimental(stats, stat_groups)
+        self._calculate_stats_spots(stats, stat_groups)
 
         self._update_stats_dictionary(stats)
