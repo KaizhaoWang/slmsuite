@@ -123,6 +123,8 @@ class AlliedVision(Camera):
         self.cam.TriggerActivation.set("RisingEdge")
         self.cam.TriggerSource.set("Software")
 
+        self.average = 1
+
     def close(self, close_sdk=True):
         """
         See :meth:`.Camera.close`
@@ -264,21 +266,29 @@ class AlliedVision(Camera):
 
     def get_image(self, timeout_s=1):
         """See :meth:`.Camera.get_image`."""
-        t = time.time()
 
-        # Convert timeout_s to ms
-        frame = self.cam.get_frame(timeout_ms=int(1e3 * timeout_s))
-        frame = frame.as_numpy_ndarray()
+        frame_s = np.zeros(self.shape)
+        for i in range(self.average):
+            
+            t = time.time()
 
-        # We have noticed that sometimes the camera gets into a state where
-        # it returns a frame of all zeros apart from one pixel with value of 31.
-        # This method is admittedly a hack to try getting a frame a few more times.
-        # We welcome contributions to fix this.
-        while np.sum(frame) == np.amax(frame) == 31 and time.time() - t < timeout_s:
+            # Convert timeout_s to ms
             frame = self.cam.get_frame(timeout_ms=int(1e3 * timeout_s))
             frame = frame.as_numpy_ndarray()
 
-        return self.transform(np.squeeze(frame))
+            # We have noticed that sometimes the camera gets into a state where
+            # it returns a frame of all zeros apart from one pixel with value of 31.
+            # This method is admittedly a hack to try getting a frame a few more times.
+            # We welcome contributions to fix this.
+            while np.sum(frame) == np.amax(frame) == 31 and time.time() - t < timeout_s:
+                frame = self.cam.get_frame(timeout_ms=int(1e3 * timeout_s))
+                frame = frame.as_numpy_ndarray()
+
+            frame_s += frame[:,:,0]
+
+        frame_ave = frame_s/self.average
+
+        return self.transform(np.squeeze(frame_ave))
 
     def flush(self, timeout_s=1e-3):
         """See :meth:`.Camera.flush`."""
@@ -318,6 +328,6 @@ class AlliedVision(Camera):
 
         self.cam.set_pixel_format(format)
         self.bitresolution = 2 ** self.bitdepth
-        
+
 
 
