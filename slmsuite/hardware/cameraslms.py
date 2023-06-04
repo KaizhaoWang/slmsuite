@@ -1417,30 +1417,42 @@ class FourierSLM(CameraSLM):
 
         # Plot the result
         if plot:
-            plt.figure(figsize=(16, 8))
+            fig, axs = plt.subplots(1, 3, figsize=(16, 8))
 
-            plt.subplot(1, 3, 1)
-            plt.imshow(
+            pcm = axs[0].imshow(
                 phase_fin,
                 clim=(0,2*np.pi),
                 cmap=plt.get_cmap("twilight"),
                 interpolation="none",
             )
-            plt.title("SLM Flatfield Phase Correction")
-            plt.xlabel("SLM $x$ [pix]")
-            plt.ylabel("SLM $y$ [pix]")
+            # cax = fig.add_axes([axs[0].get_position().x1+0.01,
+            #                     axs[0].get_position().y0,
+            #                     0.02,
+            #                     axs[0].get_position().height])
+            # plt.colorbar(pcm, ax=cax)
+            axs[0].set_title("SLM Flatfield Phase Correction")
+            axs[0].set_xlabel("SLM $x$ [pix]")
+            axs[0].set_ylabel("SLM $y$ [pix]")
 
-            plt.subplot(1, 3, 2)
-            plt.imshow(amp_large, clim=(0,1))
-            plt.title("Measured Beam Amplitude")
-            plt.xlabel("SLM $x$ [pix]")
-            plt.ylabel("SLM $y$ [pix]")
+            pcm = axs[1].imshow(amp_large, clim=(0,1))
+            # cax = fig.add_axes([axs[1].get_position().x1+0.01,
+            #                     axs[1].get_position().y0,
+            #                     0.02,
+            #                     axs[1].get_position().height])
+            # plt.colorbar(pcm, ax=cax)
+            axs[1].set_title("Measured Beam Amplitude")
+            axs[1].set_xlabel("SLM $x$ [pix]")
+            axs[1].set_ylabel("SLM $y$ [pix]")
 
-            plt.subplot(1, 3, 3)
-            plt.imshow(r2, clim=(0,1))
-            plt.title("$R^2$")
-            plt.xlabel("SLM $x$ [superpix]")
-            plt.ylabel("SLM $y$ [superpix]")
+            pcm = axs[2].imshow(r2, clim=(0,1))
+            # cax = fig.add_axes([axs[2].get_position().x1+0.01,
+            #                     axs[2].get_position().y0,
+            #                     0.02,
+            #                     axs[2].get_position().height])
+            # plt.colorbar(pcm, ax=cax)
+            axs[2].set_title("$R^2$")
+            axs[2].set_xlabel("SLM $x$ [superpix]")
+            axs[2].set_ylabel("SLM $y$ [superpix]")
 
             plt.show()
 
