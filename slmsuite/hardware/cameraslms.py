@@ -545,7 +545,7 @@ class FourierSLM(CameraSLM):
         field_point_units="ij",
         superpixel_size=50,
         phase_steps=10,
-        exclude_superpixels=(0, 0),
+        exclude_superpixels=(0, 0, 0, 0),
         autoexposure=False,
         test_superpixel=None,
         reference_superpixel=None,
@@ -594,8 +594,8 @@ class FourierSLM(CameraSLM):
             The number of phases measured for the interference pattern.
             If phase_steps is not strictly positive, phase is not measured:
             only amplitude is measured.
-        exclude_superpixels : (int, int)
-            Optionally exclude superpixels from the margin, in ``(nx, ny)`` form.
+        exclude_superpixels : (int, int, int, int)
+            Optionally exclude superpixels from the margin, in ``(n_left, n_right, n_up, n_down)`` form.
             That is, the ``nx`` superpixels are omitted from the left and right sides
             of the SLM, with the same for ``ny``. As power is
             typically concentrated in the center of the SLM, this function is useful for
@@ -1001,10 +1001,6 @@ class FourierSLM(CameraSLM):
                             settle=True    )
             position_image = self.cam.get_image()
             plot_labeled(position_image, plot=plot, title="Base Target Diffraction")
-            found_center = find_center(position_image)
-
-            blaze_difference = self.ijcam_to_kxyslm(found_center) - interference_blaze
-            target_blaze_fixed = interference_blaze - blaze_difference
 
             # Step 1.25: Stop here if we don't need to measure the phase.
             if phase_steps <= 0:
@@ -1021,6 +1017,11 @@ class FourierSLM(CameraSLM):
                     "r2_fit": np.nan,
                     "phase_std": np.nan,
                 }
+
+            found_center = find_center(position_image)
+
+            blaze_difference = self.ijcam_to_kxyslm(found_center) - interference_blaze
+            target_blaze_fixed = interference_blaze - blaze_difference
 
             # Step 1.5: Measure the power in the corrected target mode.
             self.slm.write( superpixels(index, reference=None, target=0,
@@ -1130,17 +1131,19 @@ class FourierSLM(CameraSLM):
         # Otherwise, proceed with all of the superpixels.  
 
         # Number of excluded superpixels on both sides
-        nx_e = exclude_superpixels[0]
-        ny_e = exclude_superpixels[1]
+        nl_e = exclude_superpixels[0]
+        nr_e = exclude_superpixels[1]
+        nu_e = exclude_superpixels[2]
+        nd_e = exclude_superpixels[3]
 
         # Number of superpixels after the exclusion
-        NX_e = NX - (2 * nx_e)
-        NY_e = NY - (2 * ny_e)
+        NX_e = NX - (nl_e + nr_e)
+        NY_e = NY - (nu_e + nd_e)
 
         for n in tqdm(range(NX_e * NY_e), position=1, leave=True, desc="calibration"):
             
-            nx = int(n % NX_e) + nx_e
-            ny = int(n / NX_e) + ny_e
+            nx = int(n % NX_e) + nl_e
+            ny = int(n / NX_e) + nu_e
 
             # Exclude the reference mode.
             if nx == nxref and ny == nyref:
