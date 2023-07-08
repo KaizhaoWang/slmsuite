@@ -139,7 +139,7 @@ def take(
             return mp.reshape(result, (vectors.shape[1], size[1], size[0]))
 
 
-def take_plot(images):
+def take_plot(images, targets, centers):
     """
     Plots non-integrated results of :meth:`.take()` in a square array of subplots.
 
@@ -162,6 +162,12 @@ def take_plot(images):
     # Make the figure and subplots.
     plt.figure(figsize=(12, 12))
 
+    xt_ls = targets[0, :]
+    yt_ls = (-1)*targets[1, :]
+
+    xc_ls = centers[0, :]
+    yc_ls = (-1)*centers[1, :]
+
     for x in range(img_count):
         ax = plt.subplot(M, M, x + 1)
 
@@ -172,6 +178,10 @@ def take_plot(images):
             extent=extent,
             interpolation='none'
         )
+
+        ax.scatter(x=xt_ls[x],y=yt_ls[x],marker='+', c='g')
+        ax.scatter(x=xc_ls[x],y=yc_ls[x],marker='+', c='r')
+
         ax.axes.xaxis.set_visible(False)
         ax.axes.yaxis.set_visible(False)
 
