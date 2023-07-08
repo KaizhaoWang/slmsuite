@@ -3006,6 +3006,8 @@ class SpotHologram(FeedbackHologram):
 
         # Fast version; have to iterate for accuracy.
         shift_vectors = analysis.image_positions(regions)
+        shift_vectors = shift_vectors - (self.spot_ij - np.around(self.spot_ij))
+
         shift_vectors = np.clip(
             shift_vectors,
             -self.spot_integration_width_ij/4,
@@ -3050,7 +3052,7 @@ class SpotHologram(FeedbackHologram):
                 self.reset_phase()
             elif basis == "ij":
                 # Modify camera targets. Don't modify any k-vectors.
-                self.spot_ij = self.spot_ij - shift_vectors
+                self.spot_ij = self.spot_ij + shift_vectors
             else:
                 raise Exception("Unrecognized basis '{}'.".format(basis))
 
